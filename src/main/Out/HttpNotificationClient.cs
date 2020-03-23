@@ -16,11 +16,9 @@ namespace works.ei8.EventSourcing.Client.Out
     {
         private static string getEventsPathTemplate = "{0}eventsourcing/notifications/{1}";
         private static readonly Dictionary<string, HttpClient> clients = new Dictionary<string, HttpClient>();
-        private readonly string storeUrl;
-
-        public HttpNotificationClient(string storeUrl)
+        
+        public HttpNotificationClient()
         {
-            this.storeUrl = storeUrl;
         }
 
         private static HttpClient GetCreateClient(string url)
@@ -33,10 +31,10 @@ namespace works.ei8.EventSourcing.Client.Out
             return HttpNotificationClient.clients[baseUrl];
         }
 
-        public async Task<NotificationLog> GetNotificationLog(string notificationLogId, CancellationToken token = default(CancellationToken))
+        public async Task<NotificationLog> GetNotificationLog(string storeUrl, string notificationLogId, CancellationToken token = default(CancellationToken))
         {
-            var response = await HttpNotificationClient.GetCreateClient(this.storeUrl).GetAsync(
-                string.Format(HttpNotificationClient.getEventsPathTemplate, this.storeUrl, notificationLogId)
+            var response = await HttpNotificationClient.GetCreateClient(storeUrl).GetAsync(
+                string.Format(HttpNotificationClient.getEventsPathTemplate, storeUrl, notificationLogId)
                 ).ConfigureAwait(false);
 
             response.EnsureSuccessStatusCode();

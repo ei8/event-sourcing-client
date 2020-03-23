@@ -7,6 +7,6 @@ namespace works.ei8.EventSourcing.Client.Out
 {
     public interface INotificationClient
     {
-        Task<NotificationLog> GetNotificationLog(string notificationLogId, CancellationToken token = default(CancellationToken));
+        Task<NotificationLog> GetNotificationLog(string storeUrl, string notificationLogId, CancellationToken token = default(CancellationToken));
     }
 }

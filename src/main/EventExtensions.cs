@@ -1,4 +1,5 @@
 ﻿using CQRSlite.Events;
+using org.neurul.Common.Domain.Model;
 using System;
 using System.Text.RegularExpressions;
 using works.ei8.EventSourcing.Client.In;
@@ -39,7 +40,15 @@ namespace works.ei8.EventSourcing.Client
 
         public static IEvent ToDomainEvent(this Notification @event, IEventSerializer serializer)
         {
-            return (IEvent) serializer.Deserialize(@event.TypeName, @event.Data);
+            return serializer.Deserialize(@event.TypeName, @event.Data) ??
+                new UnrecognizedEvent()
+                {
+                    TypeName = @event.TypeName,
+                    Data = @event.Data,
+                    Id = Guid.Parse(@event.Id),
+                    Version = @event.Version,
+                    TimeStamp = DateTimeOffset.Parse(@event.Timestamp)
+                };
         }
     }
 }

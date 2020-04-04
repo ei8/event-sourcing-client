@@ -11,16 +11,15 @@ namespace works.ei8.EventSourcing.Client
     {
         public IEvent Deserialize(string typeName, string eventData)
         {
+            var result = default(IEvent);
+
             var eventType = default(Type);
-            try
-            {
-                eventType = Type.GetType(typeName);
-            }
-            catch (Exception ex)
-            {
-                throw new InvalidOperationException(string.Format("Type load error, reason: {0}", ex));
-            }
-            return (IEvent)JsonConvert.DeserializeObject(eventData, eventType);
+            eventType = Type.GetType(typeName, false);
+
+            if (eventType != null)
+                result = (IEvent)JsonConvert.DeserializeObject(eventData, eventType);
+
+            return result;
         }
 
         public string Serialize(IEvent @event)

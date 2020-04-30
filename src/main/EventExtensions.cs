@@ -1,11 +1,11 @@
 ﻿using CQRSlite.Events;
-using org.neurul.Common.Domain.Model;
+using neurUL.Common.Domain.Model;
 using System;
 using System.Text.RegularExpressions;
-using works.ei8.EventSourcing.Client.In;
-using works.ei8.EventSourcing.Common;
+using ei8.EventSourcing.Client.In;
+using ei8.EventSourcing.Common;
 
-namespace works.ei8.EventSourcing.Client
+namespace ei8.EventSourcing.Client
 {
     public static class EventExtensions
     {

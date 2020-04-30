@@ -1,16 +1,16 @@
 ﻿using Newtonsoft.Json;
-using org.neurul.Common;
-using org.neurul.Common.Constants;
-using org.neurul.Common.Domain.Model;
+using neurUL.Common;
+using neurUL.Common.Constants;
+using neurUL.Common.Domain.Model;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Net.Http;
 using System.Threading;
 using System.Threading.Tasks;
-using works.ei8.EventSourcing.Common;
+using ei8.EventSourcing.Common;
 
-namespace works.ei8.EventSourcing.Client.Out
+namespace ei8.EventSourcing.Client.Out
 {
     public class HttpNotificationClient : INotificationClient
     {

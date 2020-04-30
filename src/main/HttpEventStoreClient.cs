@@ -1,6 +1,6 @@
 ﻿using CQRSlite.Events;
 using Newtonsoft.Json;
-using org.neurul.Common.Domain.Model;
+using neurUL.Common.Domain.Model;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -9,10 +9,10 @@ using System.Net.Http.Headers;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
-using works.ei8.EventSourcing.Client.In;
-using works.ei8.EventSourcing.Common;
+using ei8.EventSourcing.Client.In;
+using ei8.EventSourcing.Common;
 
-namespace works.ei8.EventSourcing.Client
+namespace ei8.EventSourcing.Client
 {
     public class HttpEventStoreClient : IEventStore
     {

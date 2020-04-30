@@ -2,7 +2,7 @@
 using System.Collections.Generic;
 using System.Text;
 
-namespace works.ei8.EventSourcing.Client
+namespace ei8.EventSourcing.Client
 {
     public struct Event
     {

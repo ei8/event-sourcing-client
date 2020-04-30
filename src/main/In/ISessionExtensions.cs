@@ -6,7 +6,7 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 
-namespace works.ei8.EventSourcing.Client.In
+namespace ei8.EventSourcing.Client.In
 {
     public static class ISessionExtensions
     {

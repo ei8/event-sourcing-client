@@ -3,9 +3,9 @@ using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
 using System.Text;
-using works.ei8.EventSourcing.Client.In;
+using ei8.EventSourcing.Client.In;
 
-namespace works.ei8.EventSourcing.Client
+namespace ei8.EventSourcing.Client
 {
     public class EventSerializer : IEventSerializer
     {

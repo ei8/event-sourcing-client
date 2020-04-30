@@ -2,10 +2,10 @@
 using System;
 using System.Collections.Generic;
 using System.Text;
-using works.ei8.EventSourcing.Client.In;
-using works.ei8.EventSourcing.Client.Out;
+using ei8.EventSourcing.Client.In;
+using ei8.EventSourcing.Client.Out;
 
-namespace works.ei8.EventSourcing.Client
+namespace ei8.EventSourcing.Client
 {
     public class EventSourceFactory : IEventSourceFactory
     {

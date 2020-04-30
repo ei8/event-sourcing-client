@@ -1,8 +1,8 @@
 ﻿using CQRSlite.Domain;
 using CQRSlite.Events;
-using works.ei8.EventSourcing.Client.Out;
+using ei8.EventSourcing.Client.Out;
 
-namespace works.ei8.EventSourcing.Client
+namespace ei8.EventSourcing.Client
 {
     public class EventSource : IEventSource
     {

@@ -6,6 +6,6 @@ namespace ei8.EventSourcing.Client
 {
     public interface IEventSourceFactory
     {
-        IEventSource Create(string inStoreUrl, string outStoreUrl, Guid authorId);
+        IEventSource Create(string inBaseUrl, string outBaseUrl, Guid authorId);
     }
 }

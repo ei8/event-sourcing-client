@@ -16,13 +16,14 @@ namespace ei8.EventSourcing.Client
             this.serializer = serializer;
         }
 
-        public IEventSource Create(string inStoreUrl, string outStoreUrl, Guid authorId)
+        public IEventSource Create(string inBaseUrl, string outBaseUrl, Guid authorId)
         {
-            var es = new HttpEventStoreClient(inStoreUrl, outStoreUrl, this.serializer, authorId);
+            var esc = new HttpEventStoreCoreClient();
+            var es = new HttpEventStoreClient(inBaseUrl, outBaseUrl, esc, this.serializer, authorId);
             var r = new Repository(es);
             var s = new Session(r);
             var nc = new HttpNotificationClient();
-            return new EventSource(inStoreUrl, outStoreUrl, s, r, es, nc);
+            return new EventSource(inBaseUrl, outBaseUrl, s, r, es, nc);
         }
     }
 }

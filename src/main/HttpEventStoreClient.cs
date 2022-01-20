@@ -1,41 +1,56 @@
 ﻿using CQRSlite.Events;
+using ei8.EventSourcing.Common;
 using neurUL.Common.Domain.Model;
+using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Net.Http;
+using System.Net.Http.Headers;
 using System.Threading;
 using System.Threading.Tasks;
 
 namespace ei8.EventSourcing.Client
 {
-    public class HttpEventStoreClient : IEventStore
+    public class HttpEventStoreClient : IAuthoredEventStore
     {
-        private string inBaseUrl;
-        private string outBaseUrl;
-        private IEventStoreCoreClient eventStoreCoreClient;
-        private IEventSerializer serializer;
+        private static readonly Dictionary<string, HttpClient> clients = new Dictionary<string, HttpClient>();
+        private static readonly string eventStorePathTemplate = "{0}eventsourcing/eventstore{1}";
+
+        private readonly IEventStoreUrlService eventStoreUrls;
+        private readonly IEventSerializer serializer;
         private Guid authorId;
 
-        public HttpEventStoreClient(string inBaseUrl, string outBaseUrl, IEventStoreCoreClient eventStoreCoreClient, IEventSerializer serializer, Guid authorId)
+        public HttpEventStoreClient(IEventStoreUrlService eventStoreUrls, IEventSerializer serializer)
         {
-            AssertionConcern.AssertArgumentNotNull(inBaseUrl, nameof(inBaseUrl));
-            AssertionConcern.AssertArgumentNotEmpty(inBaseUrl, $"'{nameof(inBaseUrl)}' cannot be empty.", nameof(inBaseUrl));
-            AssertionConcern.AssertArgumentNotNull(outBaseUrl, nameof(outBaseUrl));
-            AssertionConcern.AssertArgumentNotEmpty(outBaseUrl, $"'{nameof(outBaseUrl)}' cannot be empty.", nameof(outBaseUrl));
-            AssertionConcern.AssertArgumentNotNull(eventStoreCoreClient, nameof(eventStoreCoreClient));
+            AssertionConcern.AssertArgumentNotNull(eventStoreUrls, nameof(eventStoreUrls));
             AssertionConcern.AssertArgumentNotNull(serializer, nameof(serializer));
-            AssertionConcern.AssertArgumentValid(i => i != Guid.Empty, authorId, "Id must not be equal to '00000000-0000-0000-0000-000000000000'.", nameof(authorId));
 
-            this.inBaseUrl = inBaseUrl;
-            this.outBaseUrl = outBaseUrl;
-            this.eventStoreCoreClient = eventStoreCoreClient;
+            this.eventStoreUrls = eventStoreUrls;
             this.serializer = serializer;
-            this.authorId = authorId;
         }
-        
+
+        private static HttpClient GetCreateClient(string url)
+        {
+            Uri uri = null;
+            AssertionConcern.AssertArgumentValid<string>(u => Uri.TryCreate(url, UriKind.RelativeOrAbsolute, out uri), url, "Specified URL must be valid", nameof(url));
+            var baseUrl = uri.GetLeftPart(UriPartial.Authority);
+            if (!HttpEventStoreClient.clients.ContainsKey(baseUrl))
+                HttpEventStoreClient.clients.Add(baseUrl, new HttpClient() { BaseAddress = new Uri(baseUrl) });
+            return HttpEventStoreClient.clients[baseUrl];
+        }
+
         public async Task<IEnumerable<IEvent>> Get(Guid aggregateId, int fromVersion, CancellationToken cancellationToken = default(CancellationToken))
         {
-            var notifications = await this.eventStoreCoreClient.Get(this.outBaseUrl, aggregateId, fromVersion, cancellationToken);
+            var response = await HttpEventStoreClient.GetCreateClient(this.eventStoreUrls.OutBaseUrl).GetAsync(
+                string.Format(HttpEventStoreClient.eventStorePathTemplate, this.eventStoreUrls.OutBaseUrl, "/" + aggregateId.ToString())
+                );
+
+            response.EnsureSuccessStatusCode();
+            var notifications = JsonConvert.DeserializeObject<Notification[]>(
+                await response.Content.ReadAsStringAsync().ConfigureAwait(false)
+                );
+
             string id = aggregateId.ToString();
             var list = notifications.Where(e => e.Id == id && e.Version > fromVersion);
 
@@ -47,10 +62,25 @@ namespace ei8.EventSourcing.Client
             AssertionConcern.AssertArgumentNotNull(events, nameof(events));
             if (events.Any())
             {
-                var eventData = events.Select(e => ((IEvent)e).ToNotification(this.serializer, this.authorId));
+                var notifications = events.Select(e => ((IEvent)e).ToNotification(this.serializer, this.authorId));
 
-                await this.eventStoreCoreClient.Save(this.inBaseUrl, eventData, cancellationToken);
+                var content = new StringContent(JsonConvert.SerializeObject(notifications));
+                content.Headers.ContentType = new MediaTypeHeaderValue("application/json");
+
+                var response = await HttpEventStoreClient.GetCreateClient(this.eventStoreUrls.InBaseUrl).PostAsync(
+                    string.Format(HttpEventStoreClient.eventStorePathTemplate, this.eventStoreUrls.InBaseUrl, string.Empty),
+                    content
+                    );
+
+                response.EnsureSuccessStatusCode();
             }
+        }
+
+        public void SetAuthor(Guid authorId)
+        {
+            AssertionConcern.AssertArgumentValid(i => i != Guid.Empty, authorId, "Id must not be equal to '00000000-0000-0000-0000-000000000000'.", nameof(authorId));
+
+            this.authorId = authorId;
         }
     }
 }

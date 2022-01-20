@@ -4,8 +4,9 @@ using System.Text;
 
 namespace ei8.EventSourcing.Client
 {
-    public interface IEventSourceFactory
+    public interface IEventStoreUrlService
     {
-        IEventSource Create(string inBaseUrl, string outBaseUrl, Guid authorId);
+        string InBaseUrl { get; }
+        string OutBaseUrl { get; }
     }
 }

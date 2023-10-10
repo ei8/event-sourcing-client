@@ -18,11 +18,11 @@ namespace ei8.EventSourcing.Client
 
             return new Notification()
             {
-                Id = @event.Id.ToString(),
-                Data = contentJson,
                 TypeName = @event.GetType().AssemblyQualifiedName,
-                Timestamp = DateTimeOffset.Now.ToString("o"),
+                Data = contentJson,
+                Id = @event.Id.ToString(),
                 Version = @event.Version,
+                Timestamp = @event.TimeStamp.ToString("o"),
                 AuthorId = authorId.ToString()
             };
         }

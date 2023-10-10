@@ -12,9 +12,7 @@ namespace ei8.EventSourcing.Client
         public IEvent Deserialize(string typeName, string eventData)
         {
             var result = default(IEvent);
-
-            var eventType = default(Type);
-            eventType = Type.GetType(typeName, false);
+            Type eventType = Type.GetType(typeName, false);
 
             if (eventType != null)
                 result = (IEvent)JsonConvert.DeserializeObject(eventData, eventType);

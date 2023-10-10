@@ -8,47 +8,48 @@ using System.Threading.Tasks;
 
 namespace ei8.EventSourcing.Client
 {
-    public class Transaction
+    public class Transaction : ITransaction
     {
-        private readonly IAuthoredEventStore authoredEventStore;
-        private readonly IInMemoryAuthoredEventStore inMemoryAuthoredEventStore;
-        private readonly Guid aggregateId;
-        private readonly IEnumerable<IEvent> initialAggregateEvents;
+        private readonly IAuthoredEventStore eventStore;
+        private readonly IInMemoryAuthoredEventStore inMemoryEventStore;
+        private Guid aggregateId;
+        private IEnumerable<IEvent> initialAggregateEvents;
         private readonly List<IEvent> allAggregateEvents;
-        private int expectedVersion;
 
-        private Transaction(IAuthoredEventStore authoredEventStore, IInMemoryAuthoredEventStore inMemoryAuthoredEventStore, Guid aggregateId, IEnumerable<IEvent> initialAggregateEvents, int expectedVersion)
+        private Transaction(IAuthoredEventStore eventStore, IInMemoryAuthoredEventStore inMemoryEventStore)
         {
-            this.authoredEventStore = authoredEventStore;
-            this.inMemoryAuthoredEventStore = inMemoryAuthoredEventStore;
-            this.aggregateId = aggregateId;
-            this.initialAggregateEvents = initialAggregateEvents;
+            this.eventStore = eventStore;
+            this.inMemoryEventStore = inMemoryEventStore;
             this.allAggregateEvents = new List<IEvent>();
-            this.expectedVersion = expectedVersion;
         }
 
-        public static async Task<Transaction> Begin(IAuthoredEventStore authoredEventStore, IInMemoryAuthoredEventStore inMemoryAuthoredEventStore, Guid aggregateId, Guid authorId, int expectedVersion = 0)
+        public async Task Begin(Guid aggregateId, Guid authorId)
         {
-            authoredEventStore.SetAuthor(authorId);
-            var initialEvents = new List<IEvent>(await authoredEventStore.Get(aggregateId, -1));
-            inMemoryAuthoredEventStore.Initialize(initialEvents);
-            return new Transaction(authoredEventStore, inMemoryAuthoredEventStore, aggregateId, initialEvents, expectedVersion);
-        }
+            this.eventStore.SetAuthor(authorId);
 
-        public async Task InvokeAdapter(Assembly assemblyContainingRecognizedEvents, Func<int, Task> adapterMethod, IEnumerable<IEvent> preloadedOtherAggregatesEvents = null)
-        {
-            await Transaction.Update(this.allAggregateEvents, this.inMemoryAuthoredEventStore, this.aggregateId);
+            this.initialAggregateEvents = new List<IEvent>(await this.eventStore.Get(aggregateId, -1));
+            this.inMemoryEventStore.Initialize(this.initialAggregateEvents);
+            this.aggregateId = aggregateId;
+
+            await Transaction.Update(this.allAggregateEvents, this.inMemoryEventStore, this.aggregateId);
+        }
+        
+        public async Task<int> InvokeAdapter(Assembly assemblyContainingRecognizedEvents, Func<int, Task> adapterMethod, int expectedVersion, IEnumerable<IEvent> preloadedOtherAggregatesEvents = null)
+        {            
             var processedEvents = Transaction.ReplaceUnrecognizedEvents(this.allAggregateEvents, assemblyContainingRecognizedEvents);
             if (preloadedOtherAggregatesEvents != null)
                 processedEvents = processedEvents.Concat(preloadedOtherAggregatesEvents);
-            this.inMemoryAuthoredEventStore.Initialize(processedEvents);
+            this.inMemoryEventStore.Initialize(processedEvents);
 
-            await adapterMethod.Invoke(this.expectedVersion);
-            this.expectedVersion++;
+            await adapterMethod.Invoke(expectedVersion);
+            await Transaction.Update(this.allAggregateEvents, this.inMemoryEventStore, this.aggregateId);
+
+            return ++expectedVersion;
         }
 
         public static IEnumerable<IEvent> ReplaceUnrecognizedEvents(IEnumerable<IEvent> events, Assembly assemblyContainingRecognizedEvents)
         {
+            // get events from assembly
             var recognizedEvents = assemblyContainingRecognizedEvents.GetTypes().Where(t => typeof(IEvent).IsAssignableFrom(t));
             return events.Select(
                 e => recognizedEvents.Contains(e.GetType()) ?
@@ -62,19 +63,18 @@ namespace ei8.EventSourcing.Client
                 );
         }
 
-        private static async Task Update(List<IEvent> allAggregateEvents, IInMemoryAuthoredEventStore inMemoryAuthoredEventStore, Guid aggregateId)
+        private static async Task Update(List<IEvent> allAggregateEvents, IInMemoryAuthoredEventStore inMemoryEventStore, Guid aggregateId)
         {
             // update cache if there are more events in eventStore than in cache
-            var aggregateEventsInEventStore = await inMemoryAuthoredEventStore.Get(aggregateId, -1);
-            if (aggregateEventsInEventStore.Count() > allAggregateEvents.Count)
-                allAggregateEvents.AddRange(aggregateEventsInEventStore.Skip(allAggregateEvents.Count));
+            var aggregateEventsInInMemoryEventStore = await inMemoryEventStore.Get(aggregateId, -1);
+            if (aggregateEventsInInMemoryEventStore.Count() > allAggregateEvents.Count)
+                allAggregateEvents.AddRange(aggregateEventsInInMemoryEventStore.Skip(allAggregateEvents.Count));
         }
 
         public async Task Commit()
-        {
-            await Transaction.Update(this.allAggregateEvents, this.inMemoryAuthoredEventStore, this.aggregateId);
+        {            
             var newEvents = this.allAggregateEvents.Except(this.initialAggregateEvents);
-            await this.authoredEventStore.Save(newEvents);
+            await this.eventStore.Save(newEvents);
         }
     }
 }

@@ -16,7 +16,7 @@ namespace ei8.EventSourcing.Client
         private IEnumerable<IEvent> initialAggregateEvents;
         private readonly List<IEvent> allAggregateEvents;
 
-        private Transaction(IAuthoredEventStore eventStore, IInMemoryAuthoredEventStore inMemoryEventStore)
+        public Transaction(IAuthoredEventStore eventStore, IInMemoryAuthoredEventStore inMemoryEventStore)
         {
             this.eventStore = eventStore;
             this.inMemoryEventStore = inMemoryEventStore;

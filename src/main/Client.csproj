@@ -5,13 +5,13 @@
     <AssemblyName>ei8.EventSourcing.Client</AssemblyName>
     <RootNamespace>ei8.EventSourcing.Client</RootNamespace>
     <PackageId>ei8.EventSourcing.Client</PackageId>
-    <PackageVersion>0.2.9</PackageVersion>
+    <PackageVersion>0.2.10</PackageVersion>
     <Authors>Elmer Roderick Niem Bool</Authors>
     <Description>Event Sourcing Client</Description>
     <PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>
     <PackageReleaseNotes>Refactored Transaction.</PackageReleaseNotes>
     <PackageTags>event sourcing client</PackageTags>
-    <Version>0.2.9</Version>
+    <Version>0.2.10</Version>
     <PackageLicenseUrl>https://www.apache.org/licenses/LICENSE-2.0</PackageLicenseUrl>
   </PropertyGroup>
 

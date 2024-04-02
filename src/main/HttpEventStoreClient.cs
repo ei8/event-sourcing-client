@@ -14,35 +14,59 @@ namespace ei8.EventSourcing.Client
 {
     public class HttpEventStoreClient : IAuthoredEventStore
     {
-        private static readonly Dictionary<string, HttpClient> clients = new Dictionary<string, HttpClient>();
         private static readonly string eventStorePathTemplate = "{0}eventsourcing/eventstore{1}";
 
         private readonly IEventStoreUrlService eventStoreUrls;
         private readonly IEventSerializer serializer;
+        private readonly IHttpClientFactory httpClientFactory;
+
         private Guid authorId;
 
-        public HttpEventStoreClient(IEventStoreUrlService eventStoreUrls, IEventSerializer serializer)
+        public HttpEventStoreClient(IEventStoreUrlService eventStoreUrls, IEventSerializer serializer, IHttpClientFactory httpClientFactory)
         {
             AssertionConcern.AssertArgumentNotNull(eventStoreUrls, nameof(eventStoreUrls));
             AssertionConcern.AssertArgumentNotNull(serializer, nameof(serializer));
+            AssertionConcern.AssertArgumentNotNull(httpClientFactory, nameof(httpClientFactory));
 
             this.eventStoreUrls = eventStoreUrls;
             this.serializer = serializer;
+            this.httpClientFactory = httpClientFactory;
         }
 
-        private static HttpClient GetCreateClient(string url)
+        #region IDisposable
+        private bool isDisposed;
+        
+        // Dispose() calls Dispose(true)
+        public void Dispose()
         {
-            Uri uri = null;
-            AssertionConcern.AssertArgumentValid<string>(u => Uri.TryCreate(url, UriKind.RelativeOrAbsolute, out uri), url, "Specified URL must be valid", nameof(url));
-            var baseUrl = uri.GetLeftPart(UriPartial.Authority);
-            if (!HttpEventStoreClient.clients.ContainsKey(baseUrl))
-                HttpEventStoreClient.clients.Add(baseUrl, new HttpClient() { BaseAddress = new Uri(baseUrl) });
-            return HttpEventStoreClient.clients[baseUrl];
+            Dispose(true);
+            GC.SuppressFinalize(this);
         }
+
+        // The bulk of the clean-up code is implemented in Dispose(bool)
+        protected virtual void Dispose(bool disposing)
+        {
+            if (isDisposed) return;
+
+            if (disposing)
+            {
+                // free managed resources
+            }
+
+            // free native resources if there are any.
+            //if (nativeResource != IntPtr.Zero)
+            //{
+            //    Marshal.FreeHGlobal(nativeResource);
+            //    nativeResource = IntPtr.Zero;
+            //}
+
+            isDisposed = true;
+        }
+        #endregion
 
         public async Task<IEnumerable<IEvent>> Get(Guid aggregateId, int fromVersion, CancellationToken cancellationToken = default(CancellationToken))
         {
-            var response = await HttpEventStoreClient.GetCreateClient(this.eventStoreUrls.OutBaseUrl).GetAsync(
+            var response = await this.httpClientFactory.CreateClient().GetAsync(
                 string.Format(HttpEventStoreClient.eventStorePathTemplate, this.eventStoreUrls.OutBaseUrl, "/" + aggregateId.ToString())
                 );
 
@@ -67,7 +91,7 @@ namespace ei8.EventSourcing.Client
                 var content = new StringContent(JsonConvert.SerializeObject(notifications));
                 content.Headers.ContentType = new MediaTypeHeaderValue("application/json");
 
-                var response = await HttpEventStoreClient.GetCreateClient(this.eventStoreUrls.InBaseUrl).PostAsync(
+                var response = await this.httpClientFactory.CreateClient().PostAsync(
                     string.Format(HttpEventStoreClient.eventStorePathTemplate, this.eventStoreUrls.InBaseUrl, string.Empty),
                     content
                     );

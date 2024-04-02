@@ -17,6 +17,38 @@ namespace ei8.EventSourcing.Client
         {            
         }
 
+        #region IDisposable
+        private bool isDisposed;
+
+        // Dispose() calls Dispose(true)
+        public void Dispose()
+        {
+            Dispose(true);
+            GC.SuppressFinalize(this);
+        }
+
+        // The bulk of the clean-up code is implemented in Dispose(bool)
+        protected virtual void Dispose(bool disposing)
+        {
+            if (isDisposed) return;
+
+            if (disposing)
+            {
+                // free managed resources
+                this.events = null;
+            }
+
+            // free native resources if there are any.
+            //if (nativeResource != IntPtr.Zero)
+            //{
+            //    Marshal.FreeHGlobal(nativeResource);
+            //    nativeResource = IntPtr.Zero;
+            //}
+
+            isDisposed = true;
+        }
+        #endregion
+
         public Task<IEnumerable<IEvent>> Get(Guid aggregateId, int fromVersion, CancellationToken cancellationToken = default) =>
             Task.FromResult((IEnumerable<IEvent>)this.events.ToArray().Where(e => e.Id == aggregateId && e.Version > fromVersion));
 

@@ -9,10 +9,12 @@ namespace ei8.EventSourcing.Client
 {
     public interface ITransaction
     {
-        Task Begin(Guid aggregateId, Guid authorId);
+        Task BeginAsync(Guid aggregateId, Guid authorId);
 
-        Task<int> InvokeAdapter(Assembly assemblyContainingRecognizedEvents, Func<int, Task> adapterMethod, int expectedVersion, IEnumerable<IEvent> preloadedOtherAggregatesEvents = null);
+        Task BeginAsync(IEnumerable<Guid> aggregateIds, Guid authorId);
 
-        Task Commit();
+        Task<int> InvokeAdapterAsync(Guid aggregateId, IEnumerable<Type> recognizedEventTypes, Func<int, Task> adapterMethod, int expectedVersion = 0);
+
+        Task CommitAsync();
     }
 }

@@ -12,69 +12,57 @@ namespace ei8.EventSourcing.Client
     {
         private readonly IAuthoredEventStore eventStore;
         private readonly IInMemoryAuthoredEventStore inMemoryEventStore;
-        private Guid aggregateId;
-        private IEnumerable<IEvent> initialAggregateEvents;
-        private readonly List<IEvent> allAggregateEvents;
-
+        private readonly Dictionary<Guid, AggregateEventCatalog> aggregateEventCatalogs;
+        private bool begun;
+        
         public Transaction(IAuthoredEventStore eventStore, IInMemoryAuthoredEventStore inMemoryEventStore)
         {
             this.eventStore = eventStore;
             this.inMemoryEventStore = inMemoryEventStore;
-            this.allAggregateEvents = new List<IEvent>();
+            this.aggregateEventCatalogs = new Dictionary<Guid, AggregateEventCatalog>();
+            this.begun = false;
         }
 
-        public async Task Begin(Guid aggregateId, Guid authorId)
+        public async Task BeginAsync(Guid aggregateId, Guid authorId) => await this.BeginAsync(new Guid[] { aggregateId }, authorId);
+
+        public async Task BeginAsync(IEnumerable<Guid> aggregateIds, Guid authorId)
         {
+            AssertionConcern.AssertArgumentNotNull(aggregateIds, nameof(aggregateIds));
+            AssertionConcern.AssertArgumentValid(ais => !ais.Any(a => a == Guid.Empty), aggregateIds, $"None of the specified Guid values should be equal to '{Guid.Empty.ToString()}'", nameof(aggregateIds));
+            AssertionConcern.AssertArgumentValid(ai => ai != Guid.Empty, authorId, $"Specified Guid value cannot be equal to '{Guid.Empty.ToString()}'", nameof(authorId));
+            AssertionConcern.AssertStateFalse(this.begun, "Unable to 'Begin' transaction when it has already begun since last 'Commit.'");
+
+            this.begun = true;
             this.eventStore.SetAuthor(authorId);
 
-            this.initialAggregateEvents = new List<IEvent>(await this.eventStore.Get(aggregateId, -1));
-            this.inMemoryEventStore.Initialize(this.initialAggregateEvents);
-            this.aggregateId = aggregateId;
-
-            await Transaction.Update(this.allAggregateEvents, this.inMemoryEventStore, this.aggregateId);
+            this.aggregateEventCatalogs.Clear();
+            foreach (var ai in aggregateIds)
+            {
+                var aec = await AggregateEventCatalog.CreateAsync(ai, await this.eventStore.Get(ai, -1), this.inMemoryEventStore);
+                this.aggregateEventCatalogs.Add(aec.AggregateId, aec);                
+            }            
         }
         
-        public async Task<int> InvokeAdapter(Assembly assemblyContainingRecognizedEvents, Func<int, Task> adapterMethod, int expectedVersion, IEnumerable<IEvent> preloadedOtherAggregatesEvents = null)
-        {            
-            var processedEvents = Transaction.ReplaceUnrecognizedEvents(this.allAggregateEvents, assemblyContainingRecognizedEvents);
-            if (preloadedOtherAggregatesEvents != null)
-                processedEvents = processedEvents.Concat(preloadedOtherAggregatesEvents);
-            this.inMemoryEventStore.Initialize(processedEvents);
-
-            await adapterMethod.Invoke(expectedVersion);
-            await Transaction.Update(this.allAggregateEvents, this.inMemoryEventStore, this.aggregateId);
+        public async Task<int> InvokeAdapterAsync(Guid aggregateId, IEnumerable<Type> recognizedEventTypes, Func<int, Task> adapterMethod, int expectedVersion = 0)
+        {
+            AssertionConcern.AssertStateTrue(this.begun, "Unable to invoke adapter while transaction has not yet begun since last 'Commit.'");            
+            
+            await this.aggregateEventCatalogs[aggregateId].Update(recognizedEventTypes, adapterMethod, expectedVersion);
 
             return ++expectedVersion;
         }
 
-        public static IEnumerable<IEvent> ReplaceUnrecognizedEvents(IEnumerable<IEvent> events, Assembly assemblyContainingRecognizedEvents)
+        public async Task CommitAsync()
         {
-            // get events from assembly
-            var recognizedEvents = assemblyContainingRecognizedEvents.GetTypes().Where(t => typeof(IEvent).IsAssignableFrom(t));
-            return events.Select(
-                e => recognizedEvents.Contains(e.GetType()) ?
-                e :
-                new UnrecognizedEvent()
-                {
-                    Id = e.Id,
-                    Version = e.Version,
-                    TimeStamp = e.TimeStamp
-                }
-                );
-        }
+            AssertionConcern.AssertStateTrue(this.begun, "Unable to 'Commit' while transaction has not yet begun since last 'Commit.'");
 
-        private static async Task Update(List<IEvent> allAggregateEvents, IInMemoryAuthoredEventStore inMemoryEventStore, Guid aggregateId)
-        {
-            // update cache if there are more events in eventStore than in cache
-            var aggregateEventsInInMemoryEventStore = await inMemoryEventStore.Get(aggregateId, -1);
-            if (aggregateEventsInInMemoryEventStore.Count() > allAggregateEvents.Count)
-                allAggregateEvents.AddRange(aggregateEventsInInMemoryEventStore.Skip(allAggregateEvents.Count));
-        }
-
-        public async Task Commit()
-        {            
-            var newEvents = this.allAggregateEvents.Except(this.initialAggregateEvents);
+            var newEvents = this.aggregateEventCatalogs.SelectMany(aec => aec.Value.New)
+                .ToList()
+                .OrderBy(e => e.TimeStamp);
+            
             await this.eventStore.Save(newEvents);
+
+            this.begun = false;
         }
     }
 }

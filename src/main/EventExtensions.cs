@@ -4,6 +4,10 @@ using System;
 using System.Text.RegularExpressions;
 using ei8.EventSourcing.Client.In;
 using ei8.EventSourcing.Common;
+using System.Collections;
+using System.Reflection;
+using System.Linq;
+using System.Collections.Generic;
 
 namespace ei8.EventSourcing.Client
 {
@@ -50,5 +54,8 @@ namespace ei8.EventSourcing.Client
                     TimeStamp = DateTimeOffset.Parse(@event.Timestamp)
                 };
         }
+
+        public static IEnumerable<Type> GetEventTypes(this Assembly assembly) =>
+            assembly.GetTypes().Where(t => typeof(IEvent).IsAssignableFrom(t));
     }
 }

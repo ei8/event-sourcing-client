@@ -24,22 +24,19 @@ namespace ei8.EventSourcing.Client
 
         public static async Task<AggregateEventCatalog> CreateAsync(Guid aggregateId, IEnumerable<IEvent> initial, IInMemoryAuthoredEventStore eventStore)
         {
-            var result = new AggregateEventCatalog(aggregateId, initial, eventStore);
-            await result.Initialize();
-            return result;
-        }
+            AssertionConcern.AssertArgumentValid(ai => ai != Guid.Empty, aggregateId, $"Specified '{nameof(aggregateId)}' should not be equal to '{Guid.Empty}'", nameof(aggregateId));
+            AssertionConcern.AssertArgumentNotNull(initial, nameof(initial));
+            AssertionConcern.AssertArgumentNotNull(eventStore, nameof(eventStore));
 
-        private async Task Initialize()
-        {
-            this.eventStore.Initialize(this.initial);
-            await AggregateEventCatalog.UpdateEvents(this.eventStore, this);
+            var result = new AggregateEventCatalog(aggregateId, initial, eventStore);
+            await result.UpdateCore(result.initial);
+            return result;
         }
 
         public async Task Update(IEnumerable<Type> recognizedEventTypes, Func<int, Task> adapterMethod, int expectedVersion)
         {
             AssertionConcern.AssertArgumentNotNull(recognizedEventTypes, nameof(recognizedEventTypes));
             AssertionConcern.AssertArgumentNotNull(adapterMethod, nameof(adapterMethod));
-            AssertionConcern.AssertArgumentNotNull(expectedVersion, nameof(expectedVersion));
 
             // replace unrecognized events
             var filteredEvents = this.all.Select(
@@ -52,18 +49,21 @@ namespace ei8.EventSourcing.Client
                     TimeStamp = e.TimeStamp
                 }
                 );
-            this.eventStore.Initialize(filteredEvents);
-
-            await adapterMethod.Invoke(expectedVersion);
-            await AggregateEventCatalog.UpdateEvents(this.eventStore, this);
+            
+            await this.UpdateCore(filteredEvents, adapterMethod, expectedVersion);
         }
 
-        private async static Task UpdateEvents(IInMemoryAuthoredEventStore eventStore, AggregateEventCatalog catalog)
+        private async Task UpdateCore(IEnumerable<IEvent> initialEvents, Func<int, Task> adapterMethod = null, int expectedVersion = 0)
         {
+            this.eventStore.Initialize(initialEvents);
+
+            if (adapterMethod != null)
+                await adapterMethod.Invoke(expectedVersion);
+
             // update cache if there are more events in eventStore than in cache
-            var aggregateEventsInInMemoryEventStore = await eventStore.Get(catalog.AggregateId, -1);
-            if (aggregateEventsInInMemoryEventStore.Count() > catalog.all.Count)
-                catalog.all.AddRange(aggregateEventsInInMemoryEventStore.Skip(catalog.all.Count));
+            var aggregateEventsInInMemoryEventStore = await this.eventStore.Get(this.AggregateId, -1);
+            if (aggregateEventsInInMemoryEventStore.Count() > this.all.Count)
+                this.all.AddRange(aggregateEventsInInMemoryEventStore.Skip(this.all.Count));
         }
 
         public Guid AggregateId { get; private set; }

@@ -23,12 +23,8 @@ namespace ei8.EventSourcing.Client
             this.begun = false;
         }
 
-        public async Task BeginAsync(Guid aggregateId, Guid authorId) => await this.BeginAsync(new Guid[] { aggregateId }, authorId);
-
-        public async Task BeginAsync(IEnumerable<Guid> aggregateIds, Guid authorId)
+        public async Task BeginAsync(Guid authorId)
         {
-            AssertionConcern.AssertArgumentNotNull(aggregateIds, nameof(aggregateIds));
-            AssertionConcern.AssertArgumentValid(ais => !ais.Any(a => a == Guid.Empty), aggregateIds, $"None of the specified Guid values should be equal to '{Guid.Empty.ToString()}'", nameof(aggregateIds));
             AssertionConcern.AssertArgumentValid(ai => ai != Guid.Empty, authorId, $"Specified Guid value cannot be equal to '{Guid.Empty.ToString()}'", nameof(authorId));
             AssertionConcern.AssertStateFalse(this.begun, "Unable to 'Begin' transaction when it has already begun since last 'Commit.'");
 
@@ -36,17 +32,21 @@ namespace ei8.EventSourcing.Client
             this.eventStore.SetAuthor(authorId);
 
             this.aggregateEventCatalogs.Clear();
-            foreach (var ai in aggregateIds)
-            {
-                var aec = await AggregateEventCatalog.CreateAsync(ai, await this.eventStore.Get(ai, -1), this.inMemoryEventStore);
-                this.aggregateEventCatalogs.Add(aec.AggregateId, aec);                
-            }            
         }
         
         public async Task<int> InvokeAdapterAsync(Guid aggregateId, IEnumerable<Type> recognizedEventTypes, Func<int, Task> adapterMethod, int expectedVersion = 0)
         {
+            AssertionConcern.AssertArgumentValid(ai => ai != Guid.Empty, aggregateId, $"Specified aggregateId should not be equal to '{Guid.Empty}'", nameof(aggregateId));
+            AssertionConcern.AssertArgumentNotNull(recognizedEventTypes, nameof(recognizedEventTypes));
+            AssertionConcern.AssertArgumentNotNull(adapterMethod, nameof(adapterMethod));
             AssertionConcern.AssertStateTrue(this.begun, "Unable to invoke adapter while transaction has not yet begun since last 'Commit.'");            
             
+            if (!this.aggregateEventCatalogs.ContainsKey(aggregateId))
+            {
+                var aec = await AggregateEventCatalog.CreateAsync(aggregateId, await this.eventStore.Get(aggregateId, -1), this.inMemoryEventStore);
+                this.aggregateEventCatalogs.Add(aec.AggregateId, aec);
+            }
+
             await this.aggregateEventCatalogs[aggregateId].Update(recognizedEventTypes, adapterMethod, expectedVersion);
 
             return ++expectedVersion;

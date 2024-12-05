@@ -66,6 +66,8 @@ namespace ei8.EventSourcing.Client
 
         public async Task<IEnumerable<IEvent>> Get(Guid aggregateId, int fromVersion, CancellationToken cancellationToken = default(CancellationToken))
         {
+            // var c = this.httpClientFactory.CreateClient();
+            // c.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", bearerToken)
             var response = await this.httpClientFactory.CreateClient().GetAsync(
                 string.Format(HttpEventStoreClient.eventStorePathTemplate, this.eventStoreUrls.OutBaseUrl, "/" + aggregateId.ToString())
                 );

@@ -14,7 +14,8 @@ namespace ei8.EventSourcing.Client
         private List<IEvent> events;
         
         public InMemoryEventStore()
-        {            
+        {
+            this.events = new List<IEvent>();
         }
 
         #region IDisposable

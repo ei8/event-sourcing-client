@@ -8,6 +8,7 @@ using System.Collections;
 using System.Reflection;
 using System.Linq;
 using System.Collections.Generic;
+using neurUL.Common.CqrsLite;
 
 namespace ei8.EventSourcing.Client
 {

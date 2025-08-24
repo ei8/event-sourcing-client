@@ -1,4 +1,5 @@
 ﻿using CQRSlite.Events;
+using neurUL.Common.CqrsLite;
 using neurUL.Common.Domain.Model;
 using System;
 using System.Collections.Generic;

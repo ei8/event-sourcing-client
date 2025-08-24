@@ -1,9 +1,6 @@
 ﻿using CQRSlite.Events;
 using Newtonsoft.Json;
 using System;
-using System.Collections.Generic;
-using System.Text;
-using ei8.EventSourcing.Client.In;
 
 namespace ei8.EventSourcing.Client
 {
